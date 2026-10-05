@@ -201,7 +201,7 @@ function formatDays(days) {
   if (days === null) return 'Add a monthly contribution';
   if (days <= 0) return 'Goal reached!';
   if (days < 30) return `${days} days left`;
-  const months = Math.ceil(days / 30.44);
+  const months = Math.round(days / 30.44)
   return `~${days} days · ${months} ${months === 1 ? 'month' : 'months'}`;
 }
 
