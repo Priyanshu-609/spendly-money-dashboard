@@ -29,6 +29,8 @@
     </script>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="supabase-config.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -67,6 +69,7 @@
           <label class="search-box"><span data-icon="search"></span><input id="global-search" type="search" placeholder="Search transactions, categories, or goals…" autocomplete="off" /></label>
           <div class="topbar-actions">
             <button class="icon-button notification-button" aria-label="Notifications"><span data-icon="bell"></span><i></i></button>
+            <button class="button button-quiet account-button" id="account-button" type="button">Sign in</button>
             <button class="profile-button" id="profile-button" aria-label="Edit your profile"><span class="avatar" id="profile-avatar">Y</span><span><strong id="profile-name">Your profile</strong><small>Keep going! ✨</small></span><span class="chevron" data-icon="chevron"></span></button>
           </div>
         </header>
@@ -105,6 +108,31 @@
         <label class="field-label">Currency<select name="currency"><option value="INR">Indian Rupee (₹)</option><option value="USD">US Dollar ($)</option><option value="EUR">Euro (€)</option><option value="GBP">British Pound (£)</option></select></label>
         <div class="modal-actions"><button class="button button-quiet" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Save preferences <span>→</span></button></div>
       </form>
+    </dialog>
+
+    <dialog class="modal" id="account-modal" aria-labelledby="account-title">
+      <div class="modal-content">
+        <div class="modal-heading"><div><span class="eyebrow">YOUR SPENDLY WORKSPACE</span><h2 id="account-title">Sign in across devices</h2></div><button class="icon-button close-modal" type="button" aria-label="Close">×</button></div>
+        <div class="account-setup-note" id="account-setup-note" hidden>
+          <strong>Cloud sign-in is not connected yet.</strong>
+          <p>To enable private accounts, the owner must connect a Supabase project, add its Project URL and publishable key to <code>supabase-config.js</code>, and configure email and SMS delivery. Until then, Spendly will not show or save personal data.</p>
+        </div>
+        <p class="account-copy" id="account-loading" hidden>Connecting to your Spendly account…</p>
+        <section id="account-signed-in" hidden>
+          <div class="account-status"><span class="online-dot"></span><span><strong>Signed in</strong><small id="account-identity"></small></span></div>
+          <p class="account-copy">Your workspace syncs privately. Sign in with this same verified email or phone on another device to load it there.</p>
+          <p class="account-copy account-caution">Email and phone sign-ins are separate accounts unless you link them in Supabase. Keep using the same method and address/number on each device.</p>
+          <div class="modal-actions"><button class="button button-quiet" id="account-signout" type="button">Sign out</button></div>
+        </section>
+        <form id="account-form" novalidate>
+          <p class="account-copy">Get a one-time code by email or SMS. Use the same verified address or number on every device.</p>
+          <label class="field-label">Send code by<select id="account-method" name="method"><option value="email">Email</option><option value="phone">Mobile phone</option></select></label>
+          <label class="field-label" id="account-identifier-label">Email address<input id="account-identifier" name="identifier" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+          <label class="field-label" id="account-code-label" hidden>One-time code<input id="account-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter the code" /></label>
+          <p class="account-copy account-hint" id="account-hint">For phone sign-in, enter the number with its country code, such as +91 9876543210.</p>
+          <div class="modal-actions"><button class="button button-quiet" id="account-change-identity" type="button" hidden>Change address</button><button class="button button-quiet" type="button" data-close-modal>Cancel</button><button class="button button-primary" id="account-submit" type="submit">Send code <span>→</span></button></div>
+        </form>
+      </div>
     </dialog>
   </body>
 </html>

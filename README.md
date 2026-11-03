@@ -12,18 +12,21 @@ Spendly is a responsive personal finance dashboard built with plain HTML, CSS, a
 - Spending breakdown by category and a six-month income-versus-expenses chart
 - Transaction tracking for expenses, income, and transfers
 - Edit transaction details or delete an entry; dashboard totals and reports update with your changes
-- Profile badge automatically shows the first letter of the saved name
+- Signed-in profile badge shows the first letter of the account's saved name
 - Category budgets with progress indicators
 - Savings goals with a day estimate based on the remaining amount and monthly contribution
 - Archived goals stay in Goal History and can be restored to the active list
 - Search, CSV reports, and responsive navigation
-- Local browser storage; no account or server is required
+- Passwordless sign-in by email or phone, with a private cloud workspace for each account
+- Signed-out visitors see no name, transactions, budgets, or goals
 
 ## Run it
 
-Open `index.html` in a modern browser. Spendly has no build step, package manager, or external runtime dependencies.
+Open `index.html` in a modern browser. Spendly has no build step or package manager. Sign-in uses the Supabase browser library from a CDN and remains unavailable until you connect a Supabase project.
 
-Spendly opens with an empty workspace so you can enter your own transactions, budgets, and goals. Your entries are saved in that browser with `localStorage` and remain there when you come back. Choose **Settings → Your data → Reset workspace** to clear saved entries and begin again. Each month opens to its own view; previous months stay available in Reports.
+Spendly requires sign-in before it displays or saves personal financial data. After cloud setup, sign in with the same verified email or phone on each device to load your private account workspace. If the account has no workspace yet, Spendly starts it empty; it can offer an explicit import of older browser-saved entries after sign-in. Choose **Settings → Your data → Reset workspace** to clear saved entries and begin again. Each month opens to its own view; previous months stay available in Reports.
+
+To enable email and phone sign-in, follow [SUPABASE_SETUP.md](SUPABASE_SETUP.md). Email delivery to general users needs a custom SMTP provider, and phone sign-in needs an SMS provider. Keep provider credentials inside Supabase; only the Project URL and browser-safe publishable key belong in `supabase-config.js`. The SQL schema enables row-level security so each account can reach only its own workspace.
 
 ## Search visibility
 
@@ -43,7 +46,7 @@ app.js       Views, charts, calculations, and local storage
 
 ## Privacy and scope
 
-Spendly is a front-end demo. It does not connect to bank accounts or send financial data to a server. Transactions, preferences, and goals are stored in the browser on the device where the app is used. The savings timeline is an estimate: it assumes the monthly contribution stays consistent.
+Spendly does not connect to bank accounts. While signed out, the app shows no account name or financial data and does not save new entries. After sign-in, Spendly syncs the user's workspace to Supabase using account-scoped row-level security. The savings timeline is an estimate: it assumes the monthly contribution stays consistent.
 
 ## License
 

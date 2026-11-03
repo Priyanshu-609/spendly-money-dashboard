@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'spendly-personal-v2';
+const LOCAL_BACKUP_KEY = 'spendly-local-backup-v1';
+const CLOUD_OWNER_KEY = 'spendly-cloud-owner-v1';
 
 const CATEGORY_META = [
   { name: 'Food', color: '#368af2', icon: '🍽️' },
@@ -66,7 +68,7 @@ function makeEmptyData(settings = {}) {
   };
 }
 
-function loadData() {
+function loadStoredWorkspace() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (stored && stored.version === 2 && Array.isArray(stored.transactions) && Array.isArray(stored.goals)) {
@@ -80,15 +82,162 @@ function loadData() {
 }
 
 const state = {
-  data: loadData(),
+  // Never read browser-cached financial data until Supabase confirms a signed-in user.
+  data: makeEmptyData(),
   activeView: 'dashboard',
   selectedMonth: monthKey(new Date()),
   query: '',
+  cloud: { client: null, configured: false, ready: false, user: null, error: '', loading: false },
 };
 
 function saveData() {
+  if (!state.cloud.user || !state.cloud.ready) return;
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data)); }
   catch (error) { toast('Your browser could not save this change.'); }
+  queueCloudSave();
+}
+
+let cloudSaveTimer;
+function queueCloudSave() {
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(async () => {
+    const client = state.cloud.client;
+    const user = state.cloud.user;
+    if (!client || !user || !state.cloud.ready) return;
+    const snapshot = JSON.parse(JSON.stringify(state.data));
+    const { error } = await client.from('spendly_workspaces').upsert({ user_id: user.id, workspace: snapshot, updated_at: new Date().toISOString() });
+    if (error) {
+      state.cloud.error = 'Cloud sync could not save your latest change. Check your connection and try again.';
+      console.error('Spendly cloud save failed:', error);
+      renderView();
+      return;
+    }
+    state.cloud.error = '';
+    if (state.cloud.user?.id === user.id) localStorage.setItem(CLOUD_OWNER_KEY, user.id);
+  }, 450);
+}
+
+function hasWorkspaceContent(data) {
+  return Boolean(data?.transactions?.length || data?.goals?.length || data?.goalHistory?.length || Object.values(data?.budgets || {}).some((amount) => Number(amount) > 0));
+}
+
+function normalizeWorkspace(data) {
+  if (!data || typeof data !== 'object') return makeEmptyData();
+  const defaults = makeEmptyData(data.settings);
+  return {
+    ...defaults,
+    ...data,
+    settings: { ...defaults.settings, ...(data.settings || {}) },
+    budgets: { ...defaults.budgets, ...(data.budgets || {}) },
+    transactions: Array.isArray(data.transactions) ? data.transactions : [],
+    goals: Array.isArray(data.goals) ? data.goals : [],
+    goalHistory: Array.isArray(data.goalHistory) ? data.goalHistory : [],
+  };
+}
+
+function preserveLocalBackup(data) {
+  try {
+    if (!localStorage.getItem(LOCAL_BACKUP_KEY) && hasWorkspaceContent(data)) {
+      localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(data));
+    }
+  } catch { /* Cloud account can still be used if local backup storage is unavailable. */ }
+}
+
+let handledCloudUserId = null;
+let cloudSessionVersion = 0;
+async function loadCloudWorkspace(user) {
+  const version = ++cloudSessionVersion;
+  state.cloud.user = user;
+  state.cloud.ready = false;
+  state.cloud.loading = true;
+  state.cloud.error = '';
+  renderView();
+
+  const { data: row, error } = await state.cloud.client.from('spendly_workspaces').select('workspace').eq('user_id', user.id).maybeSingle();
+  if (version !== cloudSessionVersion) return;
+  if (error) {
+    state.cloud.loading = false;
+    state.cloud.error = 'Could not load your cloud workspace. No account data was changed.';
+    console.error('Spendly cloud load failed:', error);
+    renderView();
+    return;
+  }
+
+  const previousOwner = localStorage.getItem(CLOUD_OWNER_KEY);
+  const cachedWorkspace = loadStoredWorkspace();
+  if (row?.workspace) {
+    if (!previousOwner && cachedWorkspace) preserveLocalBackup(cachedWorkspace);
+    state.data = normalizeWorkspace(row.workspace);
+  } else {
+    const canReuseSameAccountCache = previousOwner === user.id && cachedWorkspace;
+    const canImportLocalWorkspace = !previousOwner && cachedWorkspace && hasWorkspaceContent(cachedWorkspace);
+    if (canImportLocalWorkspace) {
+      const importLocal = window.confirm('This account has no Spendly data yet. Import the entries currently saved in this browser into your account? Choose Cancel to start with an empty cloud workspace.');
+      if (!importLocal) {
+        preserveLocalBackup(cachedWorkspace);
+        state.data = makeEmptyData();
+      } else state.data = cachedWorkspace;
+    } else if (canReuseSameAccountCache) {
+      state.data = cachedWorkspace;
+    } else {
+      state.data = makeEmptyData();
+    }
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  localStorage.setItem(CLOUD_OWNER_KEY, user.id);
+  state.selectedMonth = monthKey(new Date());
+  state.cloud.loading = false;
+  state.cloud.ready = true;
+  handledCloudUserId = user.id;
+  renderView();
+  if (!row?.workspace) queueCloudSave();
+  toast(row?.workspace ? 'Your Spendly account is ready on this device.' : 'Cloud workspace ready.');
+}
+
+function returnToSignedOutState() {
+  cloudSessionVersion += 1;
+  state.cloud.user = null;
+  state.cloud.ready = true;
+  state.cloud.loading = false;
+  state.cloud.error = '';
+  handledCloudUserId = null;
+  state.data = makeEmptyData();
+  state.selectedMonth = monthKey(new Date());
+  renderView();
+}
+
+async function initCloudAuth() {
+  const config = window.SPENDLY_SUPABASE_CONFIG || {};
+  const url = String(config.url || '').trim();
+  const key = String(config.publishableKey || '').trim();
+  if (!url || !key || !window.supabase?.createClient) {
+    state.cloud.ready = true;
+    renderView();
+    return;
+  }
+  state.cloud.client = window.supabase.createClient(url, key);
+  state.cloud.configured = true;
+  state.cloud.ready = false;
+  state.cloud.client.auth.onAuthStateChange((event, session) => {
+    if (!['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED'].includes(event)) return;
+    setTimeout(() => {
+      const user = session?.user || null;
+      if (!user) {
+        const hadAccount = Boolean(state.cloud.user || handledCloudUserId);
+        if ((event === 'SIGNED_OUT' && hadAccount) || (event === 'INITIAL_SESSION' && localStorage.getItem(CLOUD_OWNER_KEY))) returnToSignedOutState();
+        else {
+          state.cloud.user = null;
+          state.cloud.ready = true;
+          state.cloud.loading = false;
+          renderView();
+        }
+        return;
+      }
+      if (handledCloudUserId === user.id && state.cloud.ready) return;
+      loadCloudWorkspace(user);
+    }, 0);
+  });
 }
 
 function formatMoney(value, compact = false) {
@@ -390,13 +539,56 @@ function renderReportsPage() {
 }
 
 function renderSettingsPage() {
+  const accountDescription = state.cloud.error || (state.cloud.loading ? 'Loading your private cloud workspace…' : state.cloud.user ? `Signed in as ${state.cloud.user.email || state.cloud.user.phone || 'your verified account'}. Your workspace syncs across devices.` : 'Your account is signed in.');
+  const accountAction = state.cloud.user ? 'Manage account →' : state.cloud.configured ? 'Sign in →' : 'Setup guide →';
+  const dataDescription = 'Your workspace is saved to your account and synced to this device. Reset workspace clears the current account data after the change syncs.';
   return `${renderPageHeading('Settings', 'A few details to make Spendly yours.', { month: false })}
     <div class="content-grid"><section class="panel"><div class="panel-header"><h2>Preferences</h2><button class="text-button" data-action="profile">Edit →</button></div><div class="setting-row"><div><strong>Your name</strong><small>Shown in your dashboard greeting</small></div><strong>${escapeHTML(state.data.settings.name)}</strong></div><div class="setting-row"><div><strong>Currency</strong><small>Used for all amounts</small></div><strong>${escapeHTML(state.data.settings.currency)}</strong></div></section>
-    <section class="panel"><div class="panel-header"><h2>Your data</h2><span class="pill-note">On this device</span></div><p style="color:#52677f;font-size:12px;line-height:1.7;margin:14px 0">Your transactions, goals, and budgets stay in this browser. They are not sent to a server. Use Reset workspace to clear them and start again.</p><button class="button button-quiet" data-action="reset-data">Reset workspace</button></section>
+    <section class="panel"><div class="panel-header"><h2>Account & sync</h2><span class="pill-note">${state.cloud.user ? 'Cloud sync' : 'Browser storage'}</span></div><p class="account-copy settings-account-copy">${escapeHTML(accountDescription)}</p><button class="button button-primary" data-action="account">${accountAction}</button></section>
+    <section class="panel"><div class="panel-header"><h2>Your data</h2><span class="pill-note">${state.cloud.user ? 'Account + device' : 'On this device'}</span></div><p style="color:#52677f;font-size:12px;line-height:1.7;margin:14px 0">${escapeHTML(dataDescription)}</p><button class="button button-quiet" data-action="reset-data">Reset workspace</button></section>
     <section class="panel wide-panel"><div class="panel-header"><h2>About Spendly</h2></div><p style="color:#52677f;font-size:13px;line-height:1.7;margin:13px 0">A small, friendly way to build a clearer picture of your monthly money habits. Track expenses, check budgets, and see how long it may take to reach a savings goal.</p><span class="pill-note">Demo project · HTML · CSS · JavaScript</span></section></div>`;
 }
 
+function renderAccessGate() {
+  const loading = state.cloud.loading;
+  const loadFailed = Boolean(state.cloud.user && state.cloud.error);
+  const title = loading ? 'Opening your private workspace…' : loadFailed ? 'Your workspace could not be loaded' : state.cloud.configured ? 'Sign in to use Spendly' : 'Sign-in setup is required';
+  const description = loading
+    ? 'Spendly is checking your sign-in and loading only your account’s workspace.'
+    : loadFailed
+      ? state.cloud.error
+      : state.cloud.configured
+        ? 'Use a one-time email or phone code to open your private workspace. Names, transactions, budgets, and goals stay hidden while you are signed out.'
+        : 'Private sign-in has not been connected yet. No name, transactions, budgets, or goals are shown or saved until the owner connects cloud sign-in.';
+  const button = loading ? '' : `<button class="button button-primary" data-action="${loadFailed ? 'retry-cloud-load' : 'account'}">${loadFailed ? 'Try again' : state.cloud.configured ? 'Sign in with a code' : 'View sign-in setup'}</button>`;
+  return `<section class="access-gate panel"><span class="eyebrow">PRIVATE SPENDLY WORKSPACE</span><span class="access-gate-icon">${icon('wallet')}</span><h1>${title}</h1><p>${escapeHTML(description)}</p>${button}<small>Nothing from another account is displayed while you are signed out.</small></section>`;
+}
+
 function renderView() {
+  const signedIn = Boolean(state.cloud.user && state.cloud.ready);
+  const profileButton = document.getElementById('profile-button');
+  const searchBox = document.querySelector('.search-box');
+  const notifications = document.querySelector('.notification-button');
+  const navigation = document.getElementById('navigation');
+  const promo = document.querySelector('.sidebar-promo');
+  profileButton.hidden = !signedIn;
+  searchBox.hidden = !signedIn;
+  notifications.hidden = !signedIn;
+  navigation.hidden = !signedIn;
+  promo.hidden = !signedIn;
+  const accountButton = document.getElementById('account-button');
+  const mobileMenu = document.getElementById('mobile-menu');
+  accountButton.textContent = state.cloud.user ? 'Account' : state.cloud.loading ? 'Connecting…' : 'Sign in';
+  accountButton.disabled = state.cloud.loading;
+  accountButton.setAttribute('aria-label', state.cloud.user ? 'Manage Spendly account' : 'Sign in to Spendly');
+  mobileMenu.hidden = !signedIn;
+  const sidebarFoot = document.querySelector('.sidebar-foot');
+  sidebarFoot.innerHTML = signedIn ? '<span class="online-dot"></span> Your workspace syncs privately' : '<span class="online-dot"></span> Sign in to open your private workspace';
+  if (!signedIn) {
+    document.getElementById('view').innerHTML = renderAccessGate();
+    if (document.getElementById('account-modal')?.open) refreshAccountModal();
+    return;
+  }
   const profileName = state.data.settings.name.trim() || 'Your profile';
   document.getElementById('profile-name').textContent = profileName;
   document.getElementById('profile-avatar').textContent = profileName.charAt(0).toLocaleUpperCase();
@@ -412,6 +604,7 @@ function renderView() {
     settings: renderSettingsPage,
   };
   document.getElementById('view').innerHTML = (renderers[state.activeView] || renderDashboard)();
+  if (document.getElementById('account-modal')?.open) refreshAccountModal();
 }
 
 function toast(message) {
@@ -429,6 +622,55 @@ function openModal(id) {
 }
 
 function closeModal(dialog) { if (dialog?.open) dialog.close(); }
+
+let accountStage = 'identify';
+function setAccountStage(stage) {
+  accountStage = stage;
+  const verifying = stage === 'verify';
+  const method = document.getElementById('account-method');
+  const identifier = document.getElementById('account-identifier');
+  const code = document.getElementById('account-code');
+  document.getElementById('account-code-label').hidden = !verifying;
+  document.getElementById('account-change-identity').hidden = !verifying;
+  method.disabled = verifying;
+  identifier.disabled = verifying;
+  identifier.required = !verifying;
+  code.required = verifying;
+  document.getElementById('account-submit').innerHTML = verifying ? 'Verify code <span>→</span>' : 'Send code <span>→</span>';
+}
+
+function updateAccountMethod() {
+  const phone = document.getElementById('account-method').value === 'phone';
+  const identifier = document.getElementById('account-identifier');
+  document.getElementById('account-identifier-label').firstChild.textContent = phone ? 'Mobile number' : 'Email address';
+  identifier.type = phone ? 'tel' : 'email';
+  identifier.autocomplete = phone ? 'tel' : 'email';
+  identifier.placeholder = phone ? '+91 9876543210' : 'you@example.com';
+  document.getElementById('account-hint').textContent = phone ? 'Enter your number with its country code, such as +91 9876543210.' : 'We’ll email you a one-time sign-in code.';
+}
+
+function refreshAccountModal() {
+  const accountModal = document.getElementById('account-modal');
+  if (!accountModal) return;
+  const configured = state.cloud.configured;
+  const signedIn = Boolean(state.cloud.user);
+  document.getElementById('account-setup-note').hidden = configured;
+  document.getElementById('account-loading').hidden = !configured || !state.cloud.loading;
+  document.getElementById('account-signed-in').hidden = !configured || !signedIn;
+  document.getElementById('account-form').hidden = !configured || signedIn || state.cloud.loading;
+  document.getElementById('account-title').textContent = signedIn ? 'Your account' : 'Sign in across devices';
+  if (signedIn) document.getElementById('account-identity').textContent = state.cloud.user.email || state.cloud.user.phone || 'Verified sign-in';
+}
+
+function openAccountModal() {
+  const form = document.getElementById('account-form');
+  form.reset();
+  accountStage = 'identify';
+  setAccountStage('identify');
+  updateAccountMethod();
+  refreshAccountModal();
+  openModal('account-modal');
+}
 
 function setTransactionType(type) {
   const form = document.getElementById('transaction-form');
@@ -469,6 +711,8 @@ function openGoalModal() {
 }
 
 function handleAction(action, element) {
+  if (action === 'account') openAccountModal();
+  if (action === 'retry-cloud-load' && state.cloud.user) loadCloudWorkspace(state.cloud.user);
   if (action === 'add-transaction') openTransaction('expense');
   if (action === 'add-income') openTransaction('income');
   if (action === 'add-expense') openTransaction('expense');
@@ -637,8 +881,70 @@ document.getElementById('sidebar-scrim')?.addEventListener('click', () => {
 
 document.querySelectorAll('.notification-button').forEach((button) => button.addEventListener('click', () => toast('You’re all caught up.')));
 document.getElementById('profile-button').addEventListener('click', () => handleAction('profile'));
+document.getElementById('account-button').addEventListener('click', openAccountModal);
+document.getElementById('account-method').addEventListener('change', updateAccountMethod);
+document.getElementById('account-change-identity').addEventListener('click', () => {
+  document.getElementById('account-code').value = '';
+  setAccountStage('identify');
+  document.getElementById('account-identifier').focus();
+});
+document.getElementById('account-signout').addEventListener('click', async () => {
+  if (!state.cloud.client) return;
+  const { error } = await state.cloud.client.auth.signOut();
+  if (error) { toast('Could not sign out. Please try again.'); return; }
+  closeModal(document.getElementById('account-modal'));
+  toast('You are signed out. Your cloud data remains saved to your account.');
+});
 document.querySelectorAll('.type-switch button').forEach((button) => button.addEventListener('click', () => setTransactionType(button.dataset.type)));
 document.querySelectorAll('[data-close-modal], .close-modal').forEach((button) => button.addEventListener('click', () => closeModal(button.closest('dialog'))));
+
+document.getElementById('account-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const client = state.cloud.client;
+  if (!state.cloud.configured || !client) { toast('Cloud sign-in needs the project setup first.'); return; }
+  const form = event.currentTarget;
+  const submit = document.getElementById('account-submit');
+  submit.disabled = true;
+  try {
+    if (accountStage === 'identify') {
+      const method = document.getElementById('account-method').value;
+      let identifier = String(form.elements.identifier.value).trim();
+      let response;
+      if (method === 'email') {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) { toast('Enter a valid email address.'); return; }
+        identifier = identifier.toLowerCase();
+        response = await client.auth.signInWithOtp({ email: identifier, options: { shouldCreateUser: true } });
+      } else {
+        identifier = identifier.replace(/[\s()-]/g, '');
+        if (!/^\+[1-9]\d{7,14}$/.test(identifier)) { toast('Enter a mobile number with its country code, such as +91 9876543210.'); return; }
+        response = await client.auth.signInWithOtp({ phone: identifier, options: { shouldCreateUser: true, channel: 'sms' } });
+      }
+      if (response.error) { toast(response.error.message || 'Could not send a sign-in code. Check your setup and try again.'); return; }
+      state.cloud.pendingIdentifier = identifier;
+      document.getElementById('account-identifier').value = identifier;
+      setAccountStage('verify');
+      document.getElementById('account-code').focus();
+      toast(`A sign-in code was sent to ${identifier}.`);
+      return;
+    }
+
+    const method = document.getElementById('account-method').value;
+    const token = String(form.elements.code.value).trim();
+    if (!/^\d{6,8}$/.test(token)) { toast('Enter the one-time code from your message.'); return; }
+    const identifier = state.cloud.pendingIdentifier || String(form.elements.identifier.value).trim();
+    const response = method === 'email'
+      ? await client.auth.verifyOtp({ email: identifier, token, type: 'email' })
+      : await client.auth.verifyOtp({ phone: identifier, token, type: 'sms' });
+    if (response.error) { toast(response.error.message || 'That code could not be verified. Check it and try again.'); return; }
+    closeModal(document.getElementById('account-modal'));
+    toast('Signed in. Loading your Spendly workspace…');
+  } catch (error) {
+    console.error('Spendly sign-in failed:', error);
+    toast('Sign-in could not finish. Please check your connection and try again.');
+  } finally {
+    submit.disabled = false;
+  }
+});
 
 document.getElementById('transaction-form').addEventListener('submit', (event) => {
   event.preventDefault();
@@ -699,5 +1005,5 @@ document.getElementById('profile-form').addEventListener('submit', (event) => {
   toast('Preferences saved.');
 });
 
-saveData();
 renderView();
+initCloudAuth();
