@@ -656,12 +656,16 @@ function refreshAccountModal() {
   if (!accountModal) return;
   const configured = state.cloud.configured;
   const signedIn = Boolean(state.cloud.user);
-  const canChoose = configured && !signedIn && !state.cloud.loading;
+  const canChoose = !signedIn && !state.cloud.loading;
   document.getElementById('account-setup-note').hidden = configured;
   document.getElementById('account-loading').hidden = !configured || !state.cloud.loading;
   document.getElementById('account-options').hidden = !canChoose || Boolean(accountMode);
   document.getElementById('account-signed-in').hidden = !configured || !signedIn;
-  document.getElementById('account-form').hidden = !canChoose || !accountMode;
+  document.getElementById('account-form').hidden = !configured || !canChoose || !accountMode;
+  document.getElementById('account-options-copy').textContent = configured
+    ? 'New to Spendly? Create your account. Already have one? Log in with the same email or phone number.'
+    : 'New users will create an account. Returning users will log in. Both choices become available after cloud sign-in is connected.';
+  document.querySelectorAll('[data-account-mode]').forEach((button) => { button.disabled = !configured; });
   document.getElementById('account-title').textContent = signedIn ? 'Your account' : accountMode === 'signup' ? 'Create your account' : accountMode === 'login' ? 'Log in to Spendly' : 'Your Spendly account';
   document.getElementById('account-form-copy').textContent = accountMode === 'signup'
     ? 'Create your account with a verified email or phone number. We’ll send a one-time code.'
