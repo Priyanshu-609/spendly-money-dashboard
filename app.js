@@ -61,6 +61,7 @@ function makeEmptyData(settings = {}) {
     settings: { name: settings.name || '', currency: settings.currency || 'INR' },
     transactions: [],
     goals: [],
+    goalHistory: [],
     budgets: Object.fromEntries(CATEGORY_META.map((category) => [category.name, 0])),
   };
 }
@@ -70,7 +71,7 @@ function loadData() {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (stored && stored.version === 2 && Array.isArray(stored.transactions) && Array.isArray(stored.goals)) {
       const defaults = makeEmptyData(stored.settings);
-      return { ...defaults, ...stored, settings: { ...defaults.settings, ...(stored.settings || {}) }, budgets: { ...defaults.budgets, ...(stored.budgets || {}) } };
+      return { ...defaults, ...stored, settings: { ...defaults.settings, ...(stored.settings || {}) }, budgets: { ...defaults.budgets, ...(stored.budgets || {}) }, goalHistory: Array.isArray(stored.goalHistory) ? stored.goalHistory : [] };
     }
   } catch (error) {
     console.warn('Could not read saved Spendly data; starting with a clean workspace.', error);
@@ -337,11 +338,18 @@ function renderGoalsPage() {
   const cards = state.data.goals.map((goal) => {
     const progress = Math.min(100, Math.round(goal.saved / goal.target * 100));
     const days = goalEtaDays(goal);
-    return `<article class="goal-card"><div class="goal-card-head"><div class="goal-card-left"><div class="goal-card-icon">${escapeHTML(goal.icon || '🎯')}</div><div><h3>${escapeHTML(goal.name)}</h3><p>Target ${formatMoney(goal.target)}</p></div></div><span class="pill-note">${progress}%</span></div><div class="goal-card-foot" style="margin-top:15px"><strong>${formatMoney(goal.saved)} saved</strong><span>${formatDays(days)}</span></div><div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div><div class="goal-card-foot"><span>${formatMoney(Math.max(0,goal.target-goal.saved))} to go</span><span>Plan: ${formatMoney(goal.contribution)} / month</span></div><div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="text-button" data-action="contribute" data-goal="${goal.id}">Add savings +</button></div></article>`;
+    return `<article class="goal-card"><div class="goal-card-head"><div class="goal-card-left"><div class="goal-card-icon">${escapeHTML(goal.icon || '🎯')}</div><div><h3>${escapeHTML(goal.name)}</h3><p>Target ${formatMoney(goal.target)}</p></div></div><span class="pill-note">${progress}%</span></div><div class="goal-card-foot" style="margin-top:15px"><strong>${formatMoney(goal.saved)} saved</strong><span>${formatDays(days)}</span></div><div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div><div class="goal-card-foot"><span>${formatMoney(Math.max(0,goal.target-goal.saved))} to go</span><span>Plan: ${formatMoney(goal.contribution)} / month</span></div><div class="goal-actions"><button class="text-button" data-action="contribute" data-goal="${escapeHTML(goal.id)}">Add savings +</button><button class="text-button goal-archive" data-action="archive-goal" data-goal="${escapeHTML(goal.id)}">Archive goal</button></div></article>`;
+  }).join('');
+  const historyCards = (state.data.goalHistory || []).map((goal) => {
+    const progress = goal.target ? Math.min(100, Math.round((goal.saved || 0) / goal.target * 100)) : 0;
+    const archiveDate = goal.archivedAt ? dateLabel(goal.archivedAt) : 'Date not recorded';
+    const status = progress >= 100 ? 'Target reached' : 'Archived';
+    return `<article class="goal-card history-goal-card"><div class="goal-card-head"><div class="goal-card-left"><div class="goal-card-icon">${escapeHTML(goal.icon || '🎯')}</div><div><h3>${escapeHTML(goal.name)}</h3><p>Target ${formatMoney(goal.target)}</p></div></div><span class="pill-note">${status}</span></div><div class="goal-card-foot" style="margin-top:15px"><strong>${formatMoney(goal.saved || 0)} saved</strong><span>${archiveDate}</span></div><div class="goal-card-foot"><span>${progress}% complete</span><span>Plan: ${formatMoney(goal.contribution || 0)} / month</span></div><div class="goal-actions"><button class="text-button" data-action="restore-goal" data-goal="${escapeHTML(goal.id)}">Restore to active</button></div></article>`;
   }).join('');
   return `${renderPageHeading('Savings Goals', 'Make your plans feel closer.', { month: false, action: 'goal', actionLabel: 'New goal' })}
     <div class="content-grid"><section class="panel wide-panel"><div class="panel-header"><h2>Your goals</h2><span class="pill-note">${state.data.goals.length} active</span></div><div class="content-grid" style="margin-top:15px">${cards || '<div class="empty-state wide-panel"><div class="empty-icon">◎</div><strong>No goals yet</strong>Pick something you care about and start saving.</div>'}</div></section>
-    <section class="panel"><div class="panel-header"><h2>Small steps count</h2></div><p style="color:#52677f;font-size:13px;line-height:1.7;margin:15px 0">Choose a monthly contribution that fits your budget. Spendly estimates the number of days to your target from the amount you have saved and your monthly plan.</p></section><section class="panel"><div class="panel-header"><h2>Goal tip</h2></div><p style="color:#52677f;font-size:13px;line-height:1.7;margin:15px 0">A clear target can make it easier to keep going. Celebrate each milestone along the way.</p></section></div>`;
+    <section class="panel"><div class="panel-header"><h2>Small steps count</h2></div><p style="color:#52677f;font-size:13px;line-height:1.7;margin:15px 0">Choose a monthly contribution that fits your budget. Spendly estimates the number of days to your target from the amount you have saved and your monthly plan.</p></section><section class="panel"><div class="panel-header"><h2>Goal tip</h2></div><p style="color:#52677f;font-size:13px;line-height:1.7;margin:15px 0">A clear target can make it easier to keep going. Celebrate each milestone along the way.</p></section></div>
+    <section class="panel goal-history-panel"><div class="panel-header"><div><h2>Goal history</h2><div class="subtle">Past goals stay here when you archive them.</div></div><span class="pill-note">${(state.data.goalHistory || []).length} past</span></div><div class="goal-history-grid">${historyCards || '<div class="empty-state"><div class="empty-icon">↗</div><strong>No past goals yet</strong>Archive a goal when you want to move on to a new one.</div>'}</div></section>`;
 }
 
 function renderAnalyticsPage() {
@@ -480,6 +488,25 @@ function handleAction(action, element) {
     saveData();
     renderView();
     toast(goal.saved >= goal.target ? 'Goal reached — well done!' : `${formatMoney(amount)} added to your goal.`);
+  }
+  if (action === 'archive-goal') {
+    const goal = state.data.goals.find((item) => item.id === element.dataset.goal);
+    if (!goal) return;
+    state.data.goals = state.data.goals.filter((item) => item.id !== goal.id);
+    state.data.goalHistory = [{ ...goal, archivedAt: localISO(new Date()) }, ...(state.data.goalHistory || [])];
+    saveData();
+    renderView();
+    toast(`${goal.name} moved to goal history.`);
+  }
+  if (action === 'restore-goal') {
+    const goal = (state.data.goalHistory || []).find((item) => item.id === element.dataset.goal);
+    if (!goal) return;
+    state.data.goalHistory = state.data.goalHistory.filter((item) => item.id !== goal.id);
+    const { archivedAt, ...restoredGoal } = goal;
+    state.data.goals.unshift(restoredGoal);
+    saveData();
+    renderView();
+    toast(`${goal.name} restored to active goals.`);
   }
   if (action === 'download-month') downloadCSV(selectedTransactions(), `spendly-${state.selectedMonth}.csv`);
   if (action === 'download-month-report') {
