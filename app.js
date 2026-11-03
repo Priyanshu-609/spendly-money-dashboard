@@ -560,7 +560,7 @@ function renderAccessGate() {
       : state.cloud.configured
         ? 'Use a one-time email or phone code to open your private workspace. Names, transactions, budgets, and goals stay hidden while you are signed out.'
         : 'Private sign-in has not been connected yet. No name, transactions, budgets, or goals are shown or saved until the owner connects cloud sign-in.';
-  const button = loading ? '' : `<button class="button button-primary" data-action="${loadFailed ? 'retry-cloud-load' : 'account'}">${loadFailed ? 'Try again' : state.cloud.configured ? 'Sign in with a code' : 'View sign-in setup'}</button>`;
+  const button = loading ? '' : `<button class="button button-primary" data-action="${loadFailed ? 'retry-cloud-load' : 'account'}">${loadFailed ? 'Try again' : state.cloud.configured ? 'Create account or log in' : 'View sign-in setup'}</button>`;
   return `<section class="access-gate panel"><span class="eyebrow">PRIVATE SPENDLY WORKSPACE</span><span class="access-gate-icon">${icon('wallet')}</span><h1>${title}</h1><p>${escapeHTML(description)}</p>${button}<small>Nothing from another account is displayed while you are signed out.</small></section>`;
 }
 
@@ -578,9 +578,9 @@ function renderView() {
   promo.hidden = !signedIn;
   const accountButton = document.getElementById('account-button');
   const mobileMenu = document.getElementById('mobile-menu');
-  accountButton.textContent = state.cloud.user ? 'Account' : state.cloud.loading ? 'Connecting…' : 'Sign in';
+  accountButton.textContent = state.cloud.user ? 'Account' : state.cloud.loading ? 'Connecting…' : state.cloud.configured ? 'Create account / Log in' : 'Account access';
   accountButton.disabled = state.cloud.loading;
-  accountButton.setAttribute('aria-label', state.cloud.user ? 'Manage Spendly account' : 'Sign in to Spendly');
+  accountButton.setAttribute('aria-label', state.cloud.user ? 'Manage Spendly account' : 'Create an account or log in to Spendly');
   mobileMenu.hidden = !signedIn;
   const sidebarFoot = document.querySelector('.sidebar-foot');
   sidebarFoot.innerHTML = signedIn ? '<span class="online-dot"></span> Your workspace syncs privately' : '<span class="online-dot"></span> Sign in to open your private workspace';
@@ -624,6 +624,7 @@ function openModal(id) {
 function closeModal(dialog) { if (dialog?.open) dialog.close(); }
 
 let accountStage = 'identify';
+let accountMode = null;
 function setAccountStage(stage) {
   accountStage = stage;
   const verifying = stage === 'verify';
@@ -632,6 +633,7 @@ function setAccountStage(stage) {
   const code = document.getElementById('account-code');
   document.getElementById('account-code-label').hidden = !verifying;
   document.getElementById('account-change-identity').hidden = !verifying;
+  document.getElementById('account-back-choice').hidden = verifying;
   method.disabled = verifying;
   identifier.disabled = verifying;
   identifier.required = !verifying;
@@ -654,17 +656,24 @@ function refreshAccountModal() {
   if (!accountModal) return;
   const configured = state.cloud.configured;
   const signedIn = Boolean(state.cloud.user);
+  const canChoose = configured && !signedIn && !state.cloud.loading;
   document.getElementById('account-setup-note').hidden = configured;
   document.getElementById('account-loading').hidden = !configured || !state.cloud.loading;
+  document.getElementById('account-options').hidden = !canChoose || Boolean(accountMode);
   document.getElementById('account-signed-in').hidden = !configured || !signedIn;
-  document.getElementById('account-form').hidden = !configured || signedIn || state.cloud.loading;
-  document.getElementById('account-title').textContent = signedIn ? 'Your account' : 'Sign in across devices';
+  document.getElementById('account-form').hidden = !canChoose || !accountMode;
+  document.getElementById('account-title').textContent = signedIn ? 'Your account' : accountMode === 'signup' ? 'Create your account' : accountMode === 'login' ? 'Log in to Spendly' : 'Your Spendly account';
+  document.getElementById('account-form-copy').textContent = accountMode === 'signup'
+    ? 'Create your account with a verified email or phone number. We’ll send a one-time code.'
+    : 'Enter the email or phone number you registered with. If an account exists, we’ll send a one-time code.';
+  document.getElementById('account-submit').innerHTML = accountStage === 'verify' ? 'Verify code <span>→</span>' : accountMode === 'signup' ? 'Create account <span>→</span>' : 'Log in <span>→</span>';
   if (signedIn) document.getElementById('account-identity').textContent = state.cloud.user.email || state.cloud.user.phone || 'Verified sign-in';
 }
 
 function openAccountModal() {
   const form = document.getElementById('account-form');
   form.reset();
+  accountMode = null;
   accountStage = 'identify';
   setAccountStage('identify');
   updateAccountMethod();
@@ -882,6 +891,24 @@ document.getElementById('sidebar-scrim')?.addEventListener('click', () => {
 document.querySelectorAll('.notification-button').forEach((button) => button.addEventListener('click', () => toast('You’re all caught up.')));
 document.getElementById('profile-button').addEventListener('click', () => handleAction('profile'));
 document.getElementById('account-button').addEventListener('click', openAccountModal);
+document.querySelectorAll('[data-account-mode]').forEach((button) => button.addEventListener('click', () => {
+  accountMode = button.dataset.accountMode;
+  accountStage = 'identify';
+  const form = document.getElementById('account-form');
+  form.reset();
+  setAccountStage('identify');
+  updateAccountMethod();
+  refreshAccountModal();
+  document.getElementById('account-identifier').focus();
+}));
+document.getElementById('account-back-choice').addEventListener('click', () => {
+  accountMode = null;
+  document.getElementById('account-form').reset();
+  accountStage = 'identify';
+  setAccountStage('identify');
+  updateAccountMethod();
+  refreshAccountModal();
+});
 document.getElementById('account-method').addEventListener('change', updateAccountMethod);
 document.getElementById('account-change-identity').addEventListener('click', () => {
   document.getElementById('account-code').value = '';
@@ -907,24 +934,26 @@ document.getElementById('account-form').addEventListener('submit', async (event)
   submit.disabled = true;
   try {
     if (accountStage === 'identify') {
+      if (!accountMode) { toast('Choose Create account or Log in first.'); return; }
       const method = document.getElementById('account-method').value;
       let identifier = String(form.elements.identifier.value).trim();
       let response;
+      const shouldCreateUser = accountMode === 'signup';
       if (method === 'email') {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) { toast('Enter a valid email address.'); return; }
         identifier = identifier.toLowerCase();
-        response = await client.auth.signInWithOtp({ email: identifier, options: { shouldCreateUser: true } });
+        response = await client.auth.signInWithOtp({ email: identifier, options: { shouldCreateUser } });
       } else {
         identifier = identifier.replace(/[\s()-]/g, '');
         if (!/^\+[1-9]\d{7,14}$/.test(identifier)) { toast('Enter a mobile number with its country code, such as +91 9876543210.'); return; }
-        response = await client.auth.signInWithOtp({ phone: identifier, options: { shouldCreateUser: true, channel: 'sms' } });
+        response = await client.auth.signInWithOtp({ phone: identifier, options: { shouldCreateUser, channel: 'sms' } });
       }
       if (response.error) { toast(response.error.message || 'Could not send a sign-in code. Check your setup and try again.'); return; }
       state.cloud.pendingIdentifier = identifier;
       document.getElementById('account-identifier').value = identifier;
       setAccountStage('verify');
       document.getElementById('account-code').focus();
-      toast(`A sign-in code was sent to ${identifier}.`);
+      toast(`Check your ${method === 'email' ? 'email' : 'phone'} for a one-time code.`);
       return;
     }
 

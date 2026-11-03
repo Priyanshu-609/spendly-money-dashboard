@@ -112,25 +112,29 @@
 
     <dialog class="modal" id="account-modal" aria-labelledby="account-title">
       <div class="modal-content">
-        <div class="modal-heading"><div><span class="eyebrow">YOUR SPENDLY WORKSPACE</span><h2 id="account-title">Sign in across devices</h2></div><button class="icon-button close-modal" type="button" aria-label="Close">×</button></div>
+        <div class="modal-heading"><div><span class="eyebrow">YOUR SPENDLY WORKSPACE</span><h2 id="account-title">Your Spendly account</h2></div><button class="icon-button close-modal" type="button" aria-label="Close">×</button></div>
         <div class="account-setup-note" id="account-setup-note" hidden>
           <strong>Cloud sign-in is not connected yet.</strong>
-          <p>To enable private accounts, the owner must connect a Supabase project, add its Project URL and publishable key to <code>supabase-config.js</code>, and configure email and SMS delivery. Until then, Spendly will not show or save personal data.</p>
+          <p>To enable private accounts, the owner must connect a Supabase project, add its Project URL and publishable key to <code>supabase-config.js</code>, and configure email and SMS delivery. After setup, users can choose Create account or Log in and verify with a one-time code. Until then, Spendly will not show or save personal data.</p>
         </div>
         <p class="account-copy" id="account-loading" hidden>Connecting to your Spendly account…</p>
+        <section class="account-options" id="account-options" hidden>
+          <p class="account-copy">New to Spendly? Create your account. Already have one? Log in with the same email or phone number.</p>
+          <div class="account-option-buttons"><button class="button button-primary" type="button" data-account-mode="signup">Create account <span>→</span></button><button class="button button-quiet" type="button" data-account-mode="login">Log in</button></div>
+        </section>
         <section id="account-signed-in" hidden>
           <div class="account-status"><span class="online-dot"></span><span><strong>Signed in</strong><small id="account-identity"></small></span></div>
           <p class="account-copy">Your workspace syncs privately. Sign in with this same verified email or phone on another device to load it there.</p>
           <p class="account-copy account-caution">Email and phone sign-ins are separate accounts unless you link them in Supabase. Keep using the same method and address/number on each device.</p>
           <div class="modal-actions"><button class="button button-quiet" id="account-signout" type="button">Sign out</button></div>
         </section>
-        <form id="account-form" novalidate>
-          <p class="account-copy">Get a one-time code by email or SMS. Use the same verified address or number on every device.</p>
+        <form id="account-form" novalidate hidden>
+          <p class="account-copy" id="account-form-copy">Get a one-time code by email or SMS. Use the same verified address or number on every device.</p>
           <label class="field-label">Send code by<select id="account-method" name="method"><option value="email">Email</option><option value="phone">Mobile phone</option></select></label>
           <label class="field-label" id="account-identifier-label">Email address<input id="account-identifier" name="identifier" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
           <label class="field-label" id="account-code-label" hidden>One-time code<input id="account-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter the code" /></label>
           <p class="account-copy account-hint" id="account-hint">For phone sign-in, enter the number with its country code, such as +91 9876543210.</p>
-          <div class="modal-actions"><button class="button button-quiet" id="account-change-identity" type="button" hidden>Change address</button><button class="button button-quiet" type="button" data-close-modal>Cancel</button><button class="button button-primary" id="account-submit" type="submit">Send code <span>→</span></button></div>
+          <div class="modal-actions"><button class="button button-quiet" id="account-back-choice" type="button">Back</button><button class="button button-quiet" id="account-change-identity" type="button" hidden>Change address</button><button class="button button-quiet" type="button" data-close-modal>Cancel</button><button class="button button-primary" id="account-submit" type="submit">Send code <span>→</span></button></div>
         </form>
       </div>
     </dialog>

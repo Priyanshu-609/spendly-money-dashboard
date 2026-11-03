@@ -267,6 +267,9 @@ svg { display: block; }
 .account-setup-note strong { font: 700 13px Manrope,sans-serif; }
 .account-setup-note p,.account-copy { margin: 9px 0 0; color: #52677f; font-size: 12px; line-height: 1.65; }
 .account-setup-note code { padding: 1px 4px; border-radius: 4px; background: #e8f4f1; font-size: 11px; }
+.account-options { padding: 15px; border: 1px solid #e8eef2; border-radius: 13px; background: #fbfdfd; }
+.account-option-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 17px; }
+.account-option-buttons .button { min-width: 0; padding: 0 10px; font-size: 12px; }
 .account-status { display: flex; align-items: center; gap: 11px; padding: 14px; border-radius: 13px; background: #effaf6; }
 .account-status > span:last-child { display: grid; gap: 3px; }
 .account-status strong { color: #124c3f; font: 700 14px Manrope,sans-serif; }
