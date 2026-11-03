@@ -187,12 +187,13 @@ svg { display: block; }
 .quick-action-icon svg { width: 25px; height: 25px; stroke: currentColor; }
 .quick-action:nth-child(1) .quick-action-icon { color: #08a984; background: #e4f9f1; }.quick-action:nth-child(2) .quick-action-icon { color: #f35267; background: #fff0f2; }.quick-action:nth-child(3) .quick-action-icon { color: #287fe0; background: #e9f3ff; }.quick-action:nth-child(4) .quick-action-icon { color: #a34bcc; background: #f4edff; }
 .quick-action > span:last-child { font-size: 10px; color: #435975; white-space: nowrap; }
-.quote-card { min-height: 298px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; border-radius: 18px; background: linear-gradient(155deg,#c9f1f1,#d4f8f1 48%,#98e2d6); }
-.quote-card::before { content: ''; width: 225px; height: 170px; position: absolute; right: -47px; bottom: -24px; border-radius: 100% 0 0 0; transform: rotate(-8deg); background: linear-gradient(140deg,#59bdb1,#168a85); clip-path: polygon(0 100%,32% 34%,49% 69%,72% 0,100% 100%); }
-.quote-card::after { content: ''; width: 185px; height: 100px; position: absolute; left: -26px; bottom: -25px; background: linear-gradient(140deg,#59c9a7,#087c73); clip-path: polygon(0 100%,38% 5%,59% 67%,78% 30%,100% 100%); opacity: .86; }
-.quote-text { max-width: 235px; z-index: 1; font: 700 23px/1.45 Manrope,sans-serif; color: #0b4b5c; letter-spacing: -.6px; }
-.quote-text b { color: #46aaa2; }
-.quote-mark { color: #58b8af; font-size: 29px; }
+.quote-card { min-height: 298px; padding: 24px; position: relative; isolation: isolate; overflow: hidden; border-radius: 18px; background: linear-gradient(150deg,#e1fbf3 0%,#c5f1e7 48%,#91ded1 100%); }
+.quote-copy { position: relative; z-index: 2; }
+.quote-kicker { display: inline-flex; align-items: center; min-height: 25px; padding: 0 10px; border: 1px solid rgba(10,111,97,.12); border-radius: 999px; color: #087866; background: rgba(255,255,255,.46); font-size: 9px; font-weight: 800; letter-spacing: 1.3px; }
+.quote-text { max-width: 270px; margin-top: 16px; color: #0b4350; font: 800 24px/1.23 Manrope,sans-serif; letter-spacing: -.8px; }
+.quote-caption { max-width: 230px; margin: 10px 0 0; color: #276d6a; font-size: 12px; line-height: 1.5; }
+.quote-landscape { position: absolute; z-index: 1; right: 0; bottom: 0; left: 0; height: 53%; }
+.quote-landscape svg { display: block; width: 100%; height: 100%; }
 
 .empty-state { padding: 34px 14px; text-align: center; color: var(--muted); font-size: 13px; }
 .empty-state strong { display: block; margin-bottom: 4px; color: var(--ink); font: 700 14px Manrope,sans-serif; }
