@@ -114,6 +114,8 @@ svg { display: block; }
 .text-button { display: inline-flex; align-items: center; gap: 6px; border: 0; padding: 6px 0 6px 8px; color: #168b78; background: transparent; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .text-button:hover { color: #056b5d; }
 .transaction-delete { color: #cc4f63; }.transaction-delete:hover { color: #a62e43; }
+.transaction-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.transaction-edit { color: #168b78; }
 .rollover-report { margin: 0 0 16px; padding: 15px 18px; }
 .rollover-summary { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 10px 0; color: var(--muted); font-size: 12px; }
 .rollover-summary strong { display: block; margin-top: 3px; color: var(--ink); font: 700 14px Manrope,sans-serif; }

@@ -11,6 +11,8 @@ Spendly is a responsive personal finance dashboard built with plain HTML, CSS, a
 - Monthly income, expenses, savings, and savings-rate summaries
 - Spending breakdown by category and a six-month income-versus-expenses chart
 - Transaction tracking for expenses, income, and transfers
+- Edit transaction details or delete an entry; dashboard totals and reports update with your changes
+- Profile badge automatically shows the first letter of the saved name
 - Category budgets with progress indicators
 - Savings goals with a day estimate based on the remaining amount and monthly contribution
 - Archived goals stay in Goal History and can be restored to the active list

@@ -231,7 +231,7 @@ function renderTransactionTable(transactions, options = {}) {
     const positive = transaction.type === 'income';
     const sign = positive ? '+' : transaction.type === 'transfer' ? '↔' : '−';
     const amountClass = positive ? 'amount-positive' : transaction.type === 'transfer' ? '' : 'amount-negative';
-    return `<tr><td>${escapeHTML(dateLabel(transaction.date))}</td><td>${escapeHTML(transaction.description)}</td><td>${transactionCategoryPill(transaction)}</td><td class="${amountClass}">${sign} ${formatMoney(transaction.amount)}</td><td><button class="text-button transaction-delete" aria-label="Delete ${escapeHTML(transaction.description)}" data-action="delete-transaction" data-transaction="${escapeHTML(transaction.id)}">Delete</button></td></tr>`;
+    return `<tr><td>${escapeHTML(dateLabel(transaction.date))}</td><td>${escapeHTML(transaction.description)}</td><td>${transactionCategoryPill(transaction)}</td><td class="${amountClass}">${sign} ${formatMoney(transaction.amount)}</td><td><div class="transaction-actions"><button class="text-button transaction-edit" aria-label="Edit ${escapeHTML(transaction.description)}" data-action="edit-transaction" data-transaction="${escapeHTML(transaction.id)}">Edit</button><button class="text-button transaction-delete" aria-label="Delete ${escapeHTML(transaction.description)}" data-action="delete-transaction" data-transaction="${escapeHTML(transaction.id)}">Delete</button></div></td></tr>`;
   }).join('');
   if (!rows) return `<div class="empty-state"><div class="empty-icon">⌕</div><strong>${state.query ? 'No matching transactions' : 'Nothing to show yet'}</strong>${state.query ? 'Try a different search or clear the search field.' : 'Add income or expenses to start your money story.'}</div>`;
   return `<div class="table-scroll"><table class="transaction-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -397,7 +397,9 @@ function renderSettingsPage() {
 }
 
 function renderView() {
-  document.getElementById('profile-name').textContent = state.data.settings.name || 'Your profile';
+  const profileName = state.data.settings.name.trim() || 'Your profile';
+  document.getElementById('profile-name').textContent = profileName;
+  document.getElementById('profile-avatar').textContent = profileName.charAt(0).toLocaleUpperCase();
   document.querySelectorAll('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.view === state.activeView));
   const renderers = {
     dashboard: renderDashboard,
@@ -435,14 +437,28 @@ function setTransactionType(type) {
   const select = form.elements.category;
   const choices = type === 'expense' ? CATEGORY_META.map((category) => category.name) : type === 'income' ? ['Income'] : ['Transfer'];
   select.innerHTML = choices.map((category) => `<option>${escapeHTML(category)}</option>`).join('');
-  document.getElementById('transaction-title').textContent = type === 'expense' ? 'Add expense' : type === 'income' ? 'Add income' : 'Add transfer';
+  const typeLabel = type === 'income' ? 'income' : type === 'transfer' ? 'transfer' : 'expense';
+  document.getElementById('transaction-title').textContent = form.dataset.editingId ? `Edit ${typeLabel}` : `Add ${typeLabel}`;
+  form.querySelector('[type="submit"]').innerHTML = form.dataset.editingId ? 'Save changes <span>→</span>' : 'Save transaction <span>→</span>';
 }
 
-function openTransaction(type = 'expense') {
+function openTransaction(type = 'expense', transaction = null) {
   const form = document.getElementById('transaction-form');
   form.reset();
-  form.elements.date.value = localISO(new Date());
-  setTransactionType(type);
+  if (transaction) {
+    form.dataset.editingId = transaction.id;
+    form.dataset.returnView = state.activeView;
+  } else {
+    delete form.dataset.editingId;
+    delete form.dataset.returnView;
+  }
+  form.elements.date.value = transaction?.date || localISO(new Date());
+  setTransactionType(transaction?.type || type);
+  if (transaction) {
+    form.elements.description.value = transaction.description;
+    form.elements.amount.value = transaction.amount;
+    form.elements.category.value = transaction.category;
+  }
   openModal('transaction-modal');
 }
 
@@ -534,6 +550,10 @@ function handleAction(action, element) {
     saveData();
     renderView();
     toast('Transaction deleted.');
+  }
+  if (action === 'edit-transaction') {
+    const transaction = state.data.transactions.find((item) => item.id === element.dataset.transaction);
+    if (transaction) openTransaction(transaction.type, transaction);
   }
   if (action === 'reset-data') {
     if (!window.confirm('Clear all transactions, goals, and category budgets saved in this browser? Your name and currency will be kept. This cannot be undone.')) return;
@@ -629,14 +649,24 @@ document.getElementById('transaction-form').addEventListener('submit', (event) =
   const date = String(data.get('date'));
   if (!date) { toast('Choose a transaction date.'); return; }
   const type = String(data.get('type'));
-  state.data.transactions.push({ id: createId(), date, description: String(data.get('description')).trim(), category: String(data.get('category')), type, amount });
+  const editingId = form.dataset.editingId;
+  const updated = { id: editingId || createId(), date, description: String(data.get('description')).trim(), category: String(data.get('category')), type, amount };
+  if (editingId) {
+    const index = state.data.transactions.findIndex((transaction) => transaction.id === editingId);
+    if (index < 0) { toast('That transaction could not be found.'); closeModal(form.closest('dialog')); return; }
+    state.data.transactions[index] = updated;
+  } else {
+    state.data.transactions.push(updated);
+  }
   state.selectedMonth = date.slice(0, 7);
   saveData();
   closeModal(form.closest('dialog'));
   form.reset();
-  state.activeView = 'dashboard';
+  state.activeView = form.dataset.returnView || 'dashboard';
+  delete form.dataset.editingId;
+  delete form.dataset.returnView;
   renderView();
-  toast(`${type === 'income' ? 'Income' : type === 'transfer' ? 'Transfer' : 'Expense'} saved.`);
+  toast(editingId ? 'Transaction updated.' : `${type === 'income' ? 'Income' : type === 'transfer' ? 'Transfer' : 'Expense'} saved.`);
 });
 
 document.getElementById('goal-form').addEventListener('submit', (event) => {
