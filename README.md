@@ -25,6 +25,10 @@ Open `index.html` in a modern browser. Spendly has no build step, package manage
 
 Spendly opens with an empty workspace so you can enter your own transactions, budgets, and goals. Your entries are saved in that browser with `localStorage` and remain there when you come back. Choose **Settings → Your data → Reset workspace** to clear saved entries and begin again. Each month opens to its own view; previous months stay available in Reports.
 
+## Search visibility
+
+The public demo includes a sitemap, a crawler access file, canonical URL, sharing metadata, and structured app information. Search engines decide whether and when to crawl, index, and show it; these files help discovery but do not guarantee a search result. To request Google indexing, verify the site in Google Search Console, submit `sitemap.xml`, and request indexing for the homepage.
+
 ## Hosting
 
 Spendly is hosted with GitHub Pages from the `main` branch's root directory.

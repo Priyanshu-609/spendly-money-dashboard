@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://priyanshu-609.github.io/spendly-money-dashboard/sitemap.xml
