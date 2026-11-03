@@ -20,7 +20,7 @@ Spendly is a responsive personal finance dashboard built with plain HTML, CSS, a
 
 Open `index.html` in a modern browser. Spendly has no build step, package manager, or external runtime dependencies.
 
-The dashboard starts with sample transactions and a sample MacBook Air goal so the charts and cards have something to show. Add, edit, or reset the demo information from the app. Changes are saved in the current browser with `localStorage`.
+Spendly opens with an empty workspace so you can enter your own transactions, budgets, and goals. Your entries are saved in that browser with `localStorage` and remain there when you come back. Choose **Settings → Your data → Reset workspace** to clear saved entries and begin again. Each month opens to its own view; previous months stay available in Reports.
 
 ## Hosting
 

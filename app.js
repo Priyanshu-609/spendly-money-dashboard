@@ -1,13 +1,13 @@
-const STORAGE_KEY = 'spendly-demo-v1';
+const STORAGE_KEY = 'spendly-personal-v2';
 
 const CATEGORY_META = [
-  { name: 'Food', color: '#368af2', icon: '🍽️', budget: 10000 },
-  { name: 'Education', color: '#ff914a', icon: '📚', budget: 6500 },
-  { name: 'Household', color: '#ffbf26', icon: '🏠', budget: 5500 },
-  { name: 'Transport', color: '#10b98f', icon: '🚌', budget: 4500 },
-  { name: 'Entertainment', color: '#a34bd0', icon: '🎬', budget: 4000 },
-  { name: 'Shopping', color: '#ec59c3', icon: '🛍️', budget: 3500 },
-  { name: 'Others', color: '#65758a', icon: '✦', budget: 4000 },
+  { name: 'Food', color: '#368af2', icon: '🍽️' },
+  { name: 'Education', color: '#ff914a', icon: '📚' },
+  { name: 'Household', color: '#ffbf26', icon: '🏠' },
+  { name: 'Transport', color: '#10b98f', icon: '🚌' },
+  { name: 'Entertainment', color: '#a34bd0', icon: '🎬' },
+  { name: 'Shopping', color: '#ec59c3', icon: '🛍️' },
+  { name: 'Others', color: '#65758a', icon: '✦' },
 ];
 
 const ICONS = {
@@ -55,62 +55,27 @@ function createId() {
   return `sp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function dateForMonthOffset(offset, day = 3) {
-  const date = new Date();
-  date.setDate(1);
-  date.setMonth(date.getMonth() + offset);
-  const maxDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  date.setDate(Math.min(day, maxDay));
-  return localISO(date);
-}
-
-function makeSeedData() {
-  const today = new Date();
-  const maxDay = today.getDate();
-  const sampleDay = (back) => localISO(new Date(today.getFullYear(), today.getMonth(), Math.max(1, maxDay - back)));
-  const transactions = [
-    { id: createId(), date: sampleDay(0), description: 'Zomato', category: 'Food', type: 'expense', amount: 450 },
-    { id: createId(), date: sampleDay(1), description: 'Freelance Payment', category: 'Income', type: 'income', amount: 5000 },
-    { id: createId(), date: sampleDay(2), description: 'Amazon', category: 'Shopping', type: 'expense', amount: 1299 },
-    { id: createId(), date: sampleDay(3), description: 'Metro Card', category: 'Transport', type: 'expense', amount: 300 },
-    { id: createId(), date: sampleDay(4), description: 'Online Course', category: 'Education', type: 'expense', amount: 2000 },
-    { id: createId(), date: sampleDay(1), description: 'Salary', category: 'Income', type: 'income', amount: 42000 },
-    { id: createId(), date: sampleDay(2), description: 'Interest', category: 'Income', type: 'income', amount: 3000 },
-    { id: createId(), date: sampleDay(2), description: 'Groceries', category: 'Food', type: 'expense', amount: 2300 },
-    { id: createId(), date: sampleDay(3), description: 'Weekly groceries', category: 'Food', type: 'expense', amount: 6350 },
-    { id: createId(), date: sampleDay(3), description: 'Design course', category: 'Education', type: 'expense', amount: 3850 },
-    { id: createId(), date: sampleDay(4), description: 'Electricity bill', category: 'Household', type: 'expense', amount: 4875 },
-    { id: createId(), date: sampleDay(4), description: 'Metro pass', category: 'Transport', type: 'expense', amount: 3600 },
-    { id: createId(), date: sampleDay(5), description: 'Movie night', category: 'Entertainment', type: 'expense', amount: 3250 },
-    { id: createId(), date: sampleDay(5), description: 'Home essentials', category: 'Shopping', type: 'expense', amount: 1301 },
-    { id: createId(), date: sampleDay(6), description: 'Other spending', category: 'Others', type: 'expense', amount: 2925 },
-  ];
-
-  const monthlyIncome = [42500, 46000, 47500, 45200, 44600];
-  const monthlyExpenses = [28000, 31400, 29800, 34000, 30100];
-  for (let offset = -5; offset < 0; offset += 1) {
-    const index = offset + 5;
-    transactions.push({ id: createId(), date: dateForMonthOffset(offset, 1), description: 'Monthly income', category: 'Income', type: 'income', amount: monthlyIncome[index] });
-    transactions.push({ id: createId(), date: dateForMonthOffset(offset, 5), description: 'Monthly expenses', category: 'Others', type: 'expense', amount: monthlyExpenses[index] });
-  }
-
+function makeEmptyData(settings = {}) {
   return {
-    version: 1,
-    settings: { name: 'Priyanshu', currency: 'INR' },
-    transactions,
-    goals: [{ id: createId(), name: 'MacBook Air', target: 80000, saved: 28000, contribution: 6500, icon: '💻' }],
-    budgets: Object.fromEntries(CATEGORY_META.map((category) => [category.name, category.budget])),
+    version: 2,
+    settings: { name: settings.name || '', currency: settings.currency || 'INR' },
+    transactions: [],
+    goals: [],
+    budgets: Object.fromEntries(CATEGORY_META.map((category) => [category.name, 0])),
   };
 }
 
 function loadData() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (stored && stored.version === 1 && Array.isArray(stored.transactions) && Array.isArray(stored.goals)) return stored;
+    if (stored && stored.version === 2 && Array.isArray(stored.transactions) && Array.isArray(stored.goals)) {
+      const defaults = makeEmptyData(stored.settings);
+      return { ...defaults, ...stored, settings: { ...defaults.settings, ...(stored.settings || {}) }, budgets: { ...defaults.budgets, ...(stored.budgets || {}) } };
+    }
   } catch (error) {
-    console.warn('Could not read saved Spendly data; loading the demo.', error);
+    console.warn('Could not read saved Spendly data; starting with a clean workspace.', error);
   }
-  return makeSeedData();
+  return makeEmptyData();
 }
 
 const state = {
@@ -201,7 +166,7 @@ function formatDays(days) {
   if (days === null) return 'Add a monthly contribution';
   if (days <= 0) return 'Goal reached!';
   if (days < 30) return `${days} days left`;
-  const months = Math.round(days / 30.44)
+  const months = Math.round(days / 30.44);
   return `~${days} days · ${months} ${months === 1 ? 'month' : 'months'}`;
 }
 
@@ -253,6 +218,7 @@ function renderHistoryChart() {
     return monthKey(date);
   });
   const monthly = keys.map((key) => ({ key, ...totalsForMonth(key) }));
+  if (!monthly.some((item) => item.income || item.expense)) return `<div class="empty-state"><div class="empty-icon">↗</div><strong>No history yet</strong>Add income or expenses to build your six-month view.</div>`;
   const max = Math.max(1, ...monthly.flatMap((item) => [item.income, item.expense]));
   const bars = monthly.map((item) => `<div class="bar-group" title="${escapeHTML(monthLabel(item.key))}: ${formatMoney(item.income)} income, ${formatMoney(item.expense)} expenses"><span class="bar income" style="height:${Math.max(3, item.income / max * 100)}%"></span><span class="bar expense" style="height:${Math.max(3, item.expense / max * 100)}%"></span><span class="bar-label">${escapeHTML(monthLabel(item.key, { month: 'short' }))}</span></div>`).join('');
   return `<div class="bar-chart" role="img" aria-label="Income and expenses over six months">${bars}</div><div class="chart-legend"><span><i></i>Income</span><span><i class="rose-dot"></i>Expenses</span></div>`;
@@ -264,10 +230,10 @@ function renderTransactionTable(transactions, options = {}) {
     const positive = transaction.type === 'income';
     const sign = positive ? '+' : transaction.type === 'transfer' ? '↔' : '−';
     const amountClass = positive ? 'amount-positive' : transaction.type === 'transfer' ? '' : 'amount-negative';
-    return `<tr><td>${escapeHTML(dateLabel(transaction.date))}</td><td>${escapeHTML(transaction.description)}</td><td>${transactionCategoryPill(transaction)}</td><td class="${amountClass}">${sign} ${formatMoney(transaction.amount)}</td></tr>`;
+    return `<tr><td>${escapeHTML(dateLabel(transaction.date))}</td><td>${escapeHTML(transaction.description)}</td><td>${transactionCategoryPill(transaction)}</td><td class="${amountClass}">${sign} ${formatMoney(transaction.amount)}</td><td><button class="text-button transaction-delete" aria-label="Delete ${escapeHTML(transaction.description)}" data-action="delete-transaction" data-transaction="${escapeHTML(transaction.id)}">Delete</button></td></tr>`;
   }).join('');
   if (!rows) return `<div class="empty-state"><div class="empty-icon">⌕</div><strong>${state.query ? 'No matching transactions' : 'Nothing to show yet'}</strong>${state.query ? 'Try a different search or clear the search field.' : 'Add income or expenses to start your money story.'}</div>`;
-  return `<div class="table-scroll"><table class="transaction-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="table-scroll"><table class="transaction-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function renderGoalFeature() {
@@ -296,6 +262,16 @@ function renderInsights(totals) {
   </section>`;
 }
 
+function renderPreviousMonthReport() {
+  const currentMonth = monthKey(new Date());
+  if (state.selectedMonth !== currentMonth) return '';
+  const previousMonth = getPreviousMonthKey(currentMonth);
+  const transactions = state.data.transactions.filter((transaction) => transaction.date?.slice(0, 7) === previousMonth);
+  if (!transactions.length) return '';
+  const totals = totalsForMonth(previousMonth);
+  return `<section class="panel rollover-report"><div class="panel-header"><div><h2>${escapeHTML(monthLabel(previousMonth))} report is ready</h2><div class="subtle">A new month has started. Last month's entries are saved for your report.</div></div><span class="pill-note">${transactions.length} entries</span></div><div class="rollover-summary"><span>Income <strong>${formatMoney(totals.income)}</strong></span><span>Expenses <strong>${formatMoney(totals.expense)}</strong></span><span>Balance <strong>${formatMoney(totals.savings)}</strong></span></div><div class="rollover-actions"><button class="button button-quiet" data-action="view-month-report" data-month="${previousMonth}">Open report</button><button class="button button-primary" data-action="download-month-report" data-month="${previousMonth}">Download report <span>↓</span></button></div></section>`;
+}
+
 function renderDashboard() {
   const transactions = selectedTransactions();
   const totals = totalsForMonth(state.selectedMonth);
@@ -303,12 +279,13 @@ function renderDashboard() {
   const incomeChange = changePercent(totals.income, previous.income);
   const expenseChange = changePercent(totals.expense, previous.expense);
   const savingsRate = totals.income > 0 ? Math.round(totals.savings / totals.income * 100) : 0;
-  const displayName = state.data.settings.name || 'there';
+  const displayName = state.data.settings.name ? `, ${escapeHTML(state.data.settings.name)}` : '';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const txTitle = state.query ? 'Search results' : 'Recent Transactions';
   const resultNote = state.query ? `<p class="search-results-note">Searching this month's transactions and your goals for “${escapeHTML(state.query)}”.</p>` : '';
-  return `${renderPageHeading(`${greeting}, ${escapeHTML(displayName)}! 👋`, 'Manage your money better, for a brighter tomorrow.')}
+  return `${renderPageHeading(`${greeting}${displayName}! 👋`, 'Manage your money better, for a brighter tomorrow.')}
+    ${renderPreviousMonthReport()}
     <div class="dashboard-grid"><div class="dashboard-primary">
       <section class="stats-grid" aria-label="Monthly summary">
         ${renderStatCard('wallet','income',formatMoney(totals.income),'Total Income',incomeChange >= 0 ? '↑ ' : '↓ ',`${Math.abs(incomeChange)}% from last month`)}
@@ -345,14 +322,14 @@ function renderBudgetPage() {
   const spent = categories.reduce((sum, category) => sum + category.amount, 0);
   const percent = planned ? Math.min(100, Math.round(spent / planned * 100)) : 0;
   const rows = categories.map((category) => {
-    const budget = Number(budgets[category.name] || category.budget);
+    const budget = Number(budgets[category.name] ?? 0);
     const progress = budget ? Math.min(100, Math.round(category.amount / budget * 100)) : 0;
     const barColor = progress >= 100 ? '#ff6079' : category.color;
-    return `<div class="budget-row"><div class="budget-name"><i style="background:${category.color}"></i>${escapeHTML(category.name)}</div><div class="progress-track"><div class="progress-fill" style="width:${progress}%;background:${barColor}"></div></div><div class="budget-amount"><strong>${formatMoney(category.amount)}</strong> / ${formatMoney(budget)}</div></div>`;
+    return `<div class="budget-row"><div class="budget-name"><i style="background:${category.color}"></i>${escapeHTML(category.name)}</div><div class="progress-track"><div class="progress-fill" style="width:${progress}%;background:${barColor}"></div></div><div class="budget-amount"><strong>${formatMoney(category.amount)}</strong> / ${budget ? formatMoney(budget) : 'No limit set'}<br /><button class="text-button" data-action="edit-budget" data-category="${escapeHTML(category.name)}">${budget ? 'Edit limit' : 'Set limit'}</button></div></div>`;
   }).join('');
   return `${renderPageHeading('Your Budget', 'Give every rupee a purpose.')}
-    <div class="content-grid"><section class="panel wide-panel"><div class="panel-header"><div><h2>${formatMoney(spent)} spent of ${formatMoney(planned)}</h2><div class="subtle">${percent}% of your monthly plan</div></div><span class="pill-note">${percent < 80 ? 'Looking good' : percent < 100 ? 'Getting close' : 'Over budget'}</span></div><div class="progress-track" style="height:12px;margin-top:16px"><div class="progress-fill" style="width:${percent}%;background:${percent >= 100 ? '#ff6079' : ''}"></div></div><div class="budget-list">${rows}</div></section>
-    <section class="panel"><div class="panel-header"><h2>Budget tip</h2><span class="insight-icon mint">✦</span></div><p style="color:#52677f;font-size:13px;line-height:1.7;margin:16px 0 4px">A budget is a plan for the life you want. Check in once a week, and adjust it when your priorities change.</p></section>
+    <div class="content-grid"><section class="panel wide-panel"><div class="panel-header"><div><h2>${formatMoney(spent)} spent of ${formatMoney(planned)}</h2><div class="subtle">${percent}% of your monthly plan</div></div><span class="pill-note">${planned ? (percent < 80 ? 'Looking good' : percent < 100 ? 'Getting close' : 'Over budget') : 'No limits set'}</span></div><div class="progress-track" style="height:12px;margin-top:16px"><div class="progress-fill" style="width:${percent}%;background:${percent >= 100 ? '#ff6079' : ''}"></div></div><div class="budget-list">${rows}</div></section>
+    <section class="panel"><div class="panel-header"><h2>Budget tip</h2><span class="insight-icon mint">✦</span></div><p style="color:#52677f;font-size:13px;line-height:1.7;margin:16px 0 4px">Set limits that fit your priorities, then check in as the month goes on. You can change each category limit here.</p></section>
     <section class="panel"><div class="panel-header"><h2>Month at a glance</h2></div><div class="setting-row"><div><strong>Planned spending</strong><small>Your category budgets combined</small></div><strong>${formatMoney(planned)}</strong></div><div class="setting-row"><div><strong>Spent so far</strong><small>Across all expense categories</small></div><strong>${formatMoney(spent)}</strong></div><div class="setting-row"><div><strong>Left to spend</strong><small>Based on your monthly plan</small></div><strong>${formatMoney(Math.max(0,planned-spent))}</strong></div></section></div>`;
 }
 
@@ -387,7 +364,7 @@ function renderCategoriesPage() {
   const categories = categoryTotals();
   const spent = categories.reduce((sum, category) => sum + category.amount, 0);
   const cards = categories.map((category) => {
-    const budget = Number(state.data.budgets?.[category.name] || category.budget);
+    const budget = Number(state.data.budgets?.[category.name] ?? 0);
     const share = spent ? Math.round(category.amount / spent * 100) : 0;
     const progress = budget ? Math.min(100, Math.round(category.amount / budget * 100)) : 0;
     return `<article class="category-card"><div class="category-card-head"><i style="display:grid;place-items:center;background:${category.color}22;color:${category.color};font-style:normal;font-size:17px">${category.icon}</i><span><strong>${escapeHTML(category.name)}</strong><small>${share}% of expenses</small></span></div><div class="category-total">${formatMoney(category.amount)}</div><div class="progress-track"><div class="progress-fill" style="width:${progress}%;background:${category.color}"></div></div><small style="display:block;margin-top:7px;color:#718196;font-size:10px">Budget ${formatMoney(budget)}</small></article>`;
@@ -397,7 +374,9 @@ function renderCategoriesPage() {
 }
 
 function renderReportsPage() {
-  return `${renderPageHeading('Reports', 'Your monthly money story, ready to take with you.', { month: false })}
+  const currentMonthButton = state.selectedMonth === monthKey(new Date()) ? '' : '<button class="text-button" data-action="current-month">Go to current month →</button>';
+  return `${renderPageHeading('Reports', 'Your monthly money story, ready to take with you.')}
+    ${currentMonthButton}
     <div class="content-grid"><section class="panel wide-panel"><div class="panel-header"><div><h2>Download your data</h2><div class="subtle">Export a clean CSV you can open in a spreadsheet.</div></div><span class="pill-note">Private to you</span></div><div class="content-grid" style="margin-top:16px"><article class="report-card"><div><span class="report-card-icon">${icon('download')}</span><h3>${escapeHTML(monthLabel(state.selectedMonth))} report</h3><p>Transactions for the selected month, with date, category, type, and amount.</p></div><button class="button button-primary" data-action="download-month">Download CSV <span>↓</span></button></article><article class="report-card"><div><span class="report-card-icon">${icon('reports')}</span><h3>All transactions</h3><p>Export every transaction saved in this browser.</p></div><button class="button button-primary" data-action="download-all">Download CSV <span>↓</span></button></article></div></section>
     <section class="panel"><div class="panel-header"><h2>Reporting note</h2></div><p style="color:#52677f;font-size:13px;line-height:1.7;margin:14px 0 0">Your downloads are created from the information currently saved in this browser. Spendly does not connect to your bank.</p></section><section class="panel"><div class="panel-header"><h2>Selected month</h2></div><div class="setting-row"><div><strong>${escapeHTML(monthLabel(state.selectedMonth))}</strong><small>Income</small></div><strong>${formatMoney(totalsForMonth(state.selectedMonth).income)}</strong></div><div class="setting-row"><div><strong>Expenses</strong><small>Recorded this month</small></div><strong>${formatMoney(totalsForMonth(state.selectedMonth).expense)}</strong></div></section></div>`;
 }
@@ -405,7 +384,7 @@ function renderReportsPage() {
 function renderSettingsPage() {
   return `${renderPageHeading('Settings', 'A few details to make Spendly yours.', { month: false })}
     <div class="content-grid"><section class="panel"><div class="panel-header"><h2>Preferences</h2><button class="text-button" data-action="profile">Edit →</button></div><div class="setting-row"><div><strong>Your name</strong><small>Shown in your dashboard greeting</small></div><strong>${escapeHTML(state.data.settings.name)}</strong></div><div class="setting-row"><div><strong>Currency</strong><small>Used for all amounts</small></div><strong>${escapeHTML(state.data.settings.currency)}</strong></div></section>
-    <section class="panel"><div class="panel-header"><h2>Your data</h2><span class="pill-note">On this device</span></div><p style="color:#52677f;font-size:12px;line-height:1.7;margin:14px 0">Your transactions and goals stay in this browser using local storage. They are not sent to a server.</p><button class="button button-quiet" data-action="reset-data">Restore demo data</button></section>
+    <section class="panel"><div class="panel-header"><h2>Your data</h2><span class="pill-note">On this device</span></div><p style="color:#52677f;font-size:12px;line-height:1.7;margin:14px 0">Your transactions, goals, and budgets stay in this browser. They are not sent to a server. Use Reset workspace to clear them and start again.</p><button class="button button-quiet" data-action="reset-data">Reset workspace</button></section>
     <section class="panel wide-panel"><div class="panel-header"><h2>About Spendly</h2></div><p style="color:#52677f;font-size:13px;line-height:1.7;margin:13px 0">A small, friendly way to build a clearer picture of your monthly money habits. Track expenses, check budgets, and see how long it may take to reach a savings goal.</p><span class="pill-note">Demo project · HTML · CSS · JavaScript</span></section></div>`;
 }
 
@@ -471,6 +450,19 @@ function handleAction(action, element) {
   if (action === 'add-expense') openTransaction('expense');
   if (action === 'add-transfer') openTransaction('transfer');
   if (action === 'goal') openGoalModal();
+  if (action === 'edit-budget') {
+    const category = CATEGORY_META.find((item) => item.name === element.dataset.category);
+    if (!category) return;
+    const current = Number(state.data.budgets?.[category.name] ?? 0);
+    const raw = window.prompt(`Monthly limit for ${category.name} (enter 0 to clear it):`, current ? String(current) : '');
+    if (raw === null) return;
+    const amount = raw.trim() === '' ? 0 : Number(raw);
+    if (!Number.isFinite(amount) || amount < 0) { toast('Enter a budget of zero or more.'); return; }
+    state.data.budgets[category.name] = amount;
+    saveData();
+    renderView();
+    toast(amount ? `${category.name} budget saved.` : `${category.name} budget cleared.`);
+  }
   if (action === 'profile') {
     const form = document.getElementById('profile-form');
     form.elements.name.value = state.data.settings.name || '';
@@ -490,14 +482,41 @@ function handleAction(action, element) {
     toast(goal.saved >= goal.target ? 'Goal reached — well done!' : `${formatMoney(amount)} added to your goal.`);
   }
   if (action === 'download-month') downloadCSV(selectedTransactions(), `spendly-${state.selectedMonth}.csv`);
+  if (action === 'download-month-report') {
+    const month = element.dataset.month;
+    downloadCSV(state.data.transactions.filter((transaction) => transaction.date?.slice(0, 7) === month), `spendly-${month}.csv`);
+  }
   if (action === 'download-all') downloadCSV(state.data.transactions, 'spendly-all-transactions.csv');
-  if (action === 'reset-data') {
-    if (!window.confirm('Restore the original demo transactions and goals? Your saved changes on this device will be replaced.')) return;
-    state.data = makeSeedData();
+  if (action === 'view-month-report') {
+    state.activeView = 'reports';
+    state.selectedMonth = element.dataset.month;
+    renderView();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (action === 'current-month') {
+    state.activeView = 'dashboard';
     state.selectedMonth = monthKey(new Date());
+    renderView();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (action === 'delete-transaction') {
+    const transaction = state.data.transactions.find((item) => item.id === element.dataset.transaction);
+    if (!transaction) return;
+    if (!window.confirm(`Delete “${transaction.description}” from ${dateLabel(transaction.date)}? This cannot be undone.`)) return;
+    state.data.transactions = state.data.transactions.filter((item) => item.id !== transaction.id);
     saveData();
     renderView();
-    toast('Demo data restored.');
+    toast('Transaction deleted.');
+  }
+  if (action === 'reset-data') {
+    if (!window.confirm('Clear all transactions, goals, and category budgets saved in this browser? Your name and currency will be kept. This cannot be undone.')) return;
+    state.data = makeEmptyData(state.data.settings);
+    state.selectedMonth = monthKey(new Date());
+    state.query = '';
+    document.getElementById('global-search').value = '';
+    saveData();
+    renderView();
+    toast('Spendly is ready for a fresh start.');
   }
 }
 
