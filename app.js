@@ -560,7 +560,7 @@ function renderAccessGate() {
     : loadFailed
       ? state.cloud.error
       : state.cloud.configured
-        ? 'Use a one-time email or phone code to open your private workspace. Names, transactions, budgets, and goals stay hidden while you are signed out.'
+        ? 'Spendly is a personal finance dashboard and expense tracker. Track monthly income and expenses, review category budgets and reports, and follow your savings goals. Use a one-time email or phone code to open your private workspace. Names, transactions, budgets, and goals stay hidden while you are signed out.'
         : 'Private sign-in has not been connected yet. No name, transactions, budgets, or goals are shown or saved until the owner connects cloud sign-in.';
   const actions = loading ? '' : loadFailed
     ? '<button class="button button-primary" data-action="retry-cloud-load">Try again</button>'
