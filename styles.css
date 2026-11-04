@@ -247,7 +247,7 @@ svg { display: block; }
 .pill-note { padding: 6px 10px; border-radius: 99px; background: #e8f7f2; color: #0a9475; font-size: 10px; font-weight: 700; }
 .search-results-note { margin: 0 0 9px; color: var(--muted); font-size: 11px; }
 
-.modal { width: min(94vw,480px); padding: 0; border: 0; border-radius: 20px; color: var(--ink); box-shadow: 0 28px 90px rgba(16,35,57,.23); }
+.modal { width: min(94vw,480px); max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain; padding: 0; border: 0; border-radius: 20px; color: var(--ink); box-shadow: 0 28px 90px rgba(16,35,57,.23); }
 .modal::backdrop { background: rgba(12,27,45,.38); backdrop-filter: blur(3px); }
 .modal form { padding: 25px; }
 .modal-content { padding: 25px; }
@@ -260,9 +260,11 @@ svg { display: block; }
 .type-switch button { min-height: 36px; border: 0; border-radius: 9px; background: transparent; color: #64758b; font-size: 12px; font-weight: 700; cursor: pointer; }
 .type-switch button.selected { color: #087e69; background: white; box-shadow: 0 2px 6px rgba(37,67,82,.09); }
 .field-label { display: grid; gap: 7px; margin: 13px 0; color: #52667d; font-size: 11px; font-weight: 700; }
+.field-label span { color: #8391a2; font-weight: 500; }
 .field-label input,.field-label select { width: 100%; height: 43px; padding: 0 12px; border: 1px solid #e5edf0; border-radius: 10px; color: #1a2e4b; background: #fff; outline: none; font-weight: 500; font-size: 13px; }
 .field-label input:focus,.field-label select:focus { border-color: #8ad9c7; box-shadow: 0 0 0 3px rgba(16,184,145,.1); }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.signup-profile-grid { display: grid; grid-template-columns: minmax(90px,.65fr) minmax(0,1.35fr); gap: 12px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
 .account-setup-note { padding: 15px; border: 1px solid #d9eee8; border-radius: 13px; background: #f3fbf8; color: #183b4a; }
 .account-setup-note strong { font: 700 13px Manrope,sans-serif; }

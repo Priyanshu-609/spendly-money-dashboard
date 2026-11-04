@@ -169,18 +169,20 @@ async function loadCloudWorkspace(user) {
     if (!previousOwner && cachedWorkspace) preserveLocalBackup(cachedWorkspace);
     state.data = normalizeWorkspace(row.workspace);
   } else {
+    const profile = user.user_metadata || {};
+    const emptyWorkspace = makeEmptyData({ name: profile.full_name || profile.name || '' });
     const canReuseSameAccountCache = previousOwner === user.id && cachedWorkspace;
     const canImportLocalWorkspace = !previousOwner && cachedWorkspace && hasWorkspaceContent(cachedWorkspace);
     if (canImportLocalWorkspace) {
       const importLocal = window.confirm('This account has no Spendly data yet. Import the entries currently saved in this browser into your account? Choose Cancel to start with an empty cloud workspace.');
       if (!importLocal) {
         preserveLocalBackup(cachedWorkspace);
-        state.data = makeEmptyData();
+        state.data = emptyWorkspace;
       } else state.data = cachedWorkspace;
     } else if (canReuseSameAccountCache) {
       state.data = cachedWorkspace;
     } else {
-      state.data = makeEmptyData();
+      state.data = emptyWorkspace;
     }
   }
 
@@ -628,9 +630,13 @@ let accountMode = null;
 function setAccountStage(stage) {
   accountStage = stage;
   const verifying = stage === 'verify';
+  const signup = accountMode === 'signup';
   const method = document.getElementById('account-method');
   const identifier = document.getElementById('account-identifier');
   const code = document.getElementById('account-code');
+  const fullName = document.getElementById('account-name');
+  document.getElementById('signup-profile-fields').hidden = !signup || verifying;
+  fullName.required = signup && !verifying;
   document.getElementById('account-code-label').hidden = !verifying;
   document.getElementById('account-change-identity').hidden = !verifying;
   document.getElementById('account-back-choice').hidden = verifying;
@@ -668,8 +674,8 @@ function refreshAccountModal() {
   document.querySelectorAll('[data-account-mode]').forEach((button) => { button.disabled = !configured; });
   document.getElementById('account-title').textContent = signedIn ? 'Your account' : accountMode === 'signup' ? 'Create your account' : accountMode === 'login' ? 'Log in to Spendly' : 'Your Spendly account';
   document.getElementById('account-form-copy').textContent = accountMode === 'signup'
-    ? 'Create your account with a verified email or phone number. We’ll send a one-time code.'
-    : 'Enter the email or phone number you registered with. If an account exists, we’ll send a one-time code.';
+    ? 'Add your name and email or phone. We’ll send a one-time code. Age and profession are optional.'
+    : 'Enter the email or phone number you registered with. We’ll send a one-time code.';
   document.getElementById('account-submit').innerHTML = accountStage === 'verify' ? 'Verify code <span>→</span>' : accountMode === 'signup' ? 'Create account <span>→</span>' : 'Log in <span>→</span>';
   if (signedIn) document.getElementById('account-identity').textContent = state.cloud.user.email || state.cloud.user.phone || 'Verified sign-in';
 }
@@ -943,14 +949,25 @@ document.getElementById('account-form').addEventListener('submit', async (event)
       let identifier = String(form.elements.identifier.value).trim();
       let response;
       const shouldCreateUser = accountMode === 'signup';
+      const options = { shouldCreateUser };
+      if (shouldCreateUser) {
+        const fullName = String(form.elements.fullName.value || '').trim();
+        const ageText = String(form.elements.age.value || '').trim();
+        const age = ageText ? Number(ageText) : null;
+        const profession = String(form.elements.profession.value || '').trim();
+        if (!fullName) { toast('Enter your name to create an account.'); return; }
+        if (ageText && (!Number.isInteger(age) || age < 13 || age > 120)) { toast('Enter an age from 13 to 120, or leave it blank.'); return; }
+        if (profession.length > 80) { toast('Keep your profession under 80 characters.'); return; }
+        options.data = { full_name: fullName, age, profession };
+      }
       if (method === 'email') {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) { toast('Enter a valid email address.'); return; }
         identifier = identifier.toLowerCase();
-        response = await client.auth.signInWithOtp({ email: identifier, options: { shouldCreateUser } });
+        response = await client.auth.signInWithOtp({ email: identifier, options });
       } else {
         identifier = identifier.replace(/[\s()-]/g, '');
         if (!/^\+[1-9]\d{7,14}$/.test(identifier)) { toast('Enter a mobile number with its country code, such as +91 9876543210.'); return; }
-        response = await client.auth.signInWithOtp({ phone: identifier, options: { shouldCreateUser, channel: 'sms' } });
+        response = await client.auth.signInWithOtp({ phone: identifier, options: { ...options, channel: 'sms' } });
       }
       if (response.error) { toast(response.error.message || 'Could not send a sign-in code. Check your setup and try again.'); return; }
       state.cloud.pendingIdentifier = identifier;

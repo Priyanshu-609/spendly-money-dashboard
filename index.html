@@ -130,6 +130,13 @@
         </section>
         <form id="account-form" novalidate hidden>
           <p class="account-copy" id="account-form-copy">Get a one-time code by email or SMS. Use the same verified address or number on every device.</p>
+          <section id="signup-profile-fields" class="signup-profile-fields" hidden>
+            <label class="field-label">Full name<input id="account-name" name="fullName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" /></label>
+            <div class="signup-profile-grid">
+              <label class="field-label">Age <span>(optional)</span><input id="account-age" name="age" type="number" min="13" max="120" inputmode="numeric" placeholder="Your age" /></label>
+              <label class="field-label">Profession <span>(optional)</span><input id="account-profession" name="profession" type="text" maxlength="80" autocomplete="organization-title" placeholder="e.g. Student" /></label>
+            </div>
+          </section>
           <label class="field-label">Send code by<select id="account-method" name="method"><option value="email">Email</option><option value="phone">Mobile phone</option></select></label>
           <label class="field-label" id="account-identifier-label">Email address<input id="account-identifier" name="identifier" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
           <label class="field-label" id="account-code-label" hidden>One-time code<input id="account-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter the code" /></label>
