@@ -562,8 +562,12 @@ function renderAccessGate() {
       : state.cloud.configured
         ? 'Use a one-time email or phone code to open your private workspace. Names, transactions, budgets, and goals stay hidden while you are signed out.'
         : 'Private sign-in has not been connected yet. No name, transactions, budgets, or goals are shown or saved until the owner connects cloud sign-in.';
-  const button = loading ? '' : `<button class="button button-primary" data-action="${loadFailed ? 'retry-cloud-load' : 'account'}">${loadFailed ? 'Try again' : state.cloud.configured ? 'Create account or log in' : 'View sign-in setup'}</button>`;
-  return `<section class="access-gate panel"><span class="eyebrow">PRIVATE SPENDLY WORKSPACE</span><span class="access-gate-icon">${icon('wallet')}</span><h1>${title}</h1><p>${escapeHTML(description)}</p>${button}<small>Nothing from another account is displayed while you are signed out.</small></section>`;
+  const actions = loading ? '' : loadFailed
+    ? '<button class="button button-primary" data-action="retry-cloud-load">Try again</button>'
+    : state.cloud.configured
+      ? '<div class="access-gate-actions"><button class="button button-primary" data-action="account-signup">Create account <span>→</span></button><button class="button button-quiet" data-action="account-login">Log in</button></div>'
+      : '<button class="button button-primary" data-action="account">View sign-in setup</button>';
+  return `<section class="access-gate panel"><span class="eyebrow">PRIVATE SPENDLY WORKSPACE</span><span class="access-gate-icon">${icon('wallet')}</span><h1>${title}</h1><p>${escapeHTML(description)}</p>${actions}<small>Nothing from another account is displayed while you are signed out.</small></section>`;
 }
 
 function renderView() {
@@ -580,9 +584,9 @@ function renderView() {
   promo.hidden = !signedIn;
   const accountButton = document.getElementById('account-button');
   const mobileMenu = document.getElementById('mobile-menu');
-  accountButton.textContent = state.cloud.user ? 'Account' : state.cloud.loading ? 'Connecting…' : state.cloud.configured ? 'Create account / Log in' : 'Account access';
+  accountButton.textContent = state.cloud.user ? 'Account' : state.cloud.loading ? 'Connecting…' : state.cloud.configured ? 'Sign in' : 'Account access';
   accountButton.disabled = state.cloud.loading;
-  accountButton.setAttribute('aria-label', state.cloud.user ? 'Manage Spendly account' : 'Create an account or log in to Spendly');
+  accountButton.setAttribute('aria-label', state.cloud.user ? 'Manage Spendly account' : 'Open Spendly account options');
   mobileMenu.hidden = !signedIn;
   const sidebarFoot = document.querySelector('.sidebar-foot');
   sidebarFoot.innerHTML = signedIn ? '<span class="online-dot"></span> Your workspace syncs privately' : '<span class="online-dot"></span> Sign in to open your private workspace';
@@ -680,15 +684,16 @@ function refreshAccountModal() {
   if (signedIn) document.getElementById('account-identity').textContent = state.cloud.user.email || state.cloud.user.phone || 'Verified sign-in';
 }
 
-function openAccountModal() {
+function openAccountModal(mode = null) {
   const form = document.getElementById('account-form');
   form.reset();
-  accountMode = null;
+  accountMode = mode;
   accountStage = 'identify';
   setAccountStage('identify');
   updateAccountMethod();
   refreshAccountModal();
   openModal('account-modal');
+  if (mode) document.getElementById(mode === 'signup' ? 'account-name' : 'account-identifier').focus();
 }
 
 function setTransactionType(type) {
@@ -731,6 +736,8 @@ function openGoalModal() {
 
 function handleAction(action, element) {
   if (action === 'account') openAccountModal();
+  if (action === 'account-signup') openAccountModal('signup');
+  if (action === 'account-login') openAccountModal('login');
   if (action === 'retry-cloud-load' && state.cloud.user) loadCloudWorkspace(state.cloud.user);
   if (action === 'add-transaction') openTransaction('expense');
   if (action === 'add-income') openTransaction('income');
